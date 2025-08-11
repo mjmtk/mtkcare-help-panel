@@ -1,36 +1,160 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MTK Care Help Panel
 
-## Getting Started
+A modern, accessible help panel system for healthcare applications, built with Next.js, shadcn/ui, and Supabase. Optimized for New Zealand users with Sydney-region hosting.
 
-First, run the development server:
+## Features
 
+- 🏥 **Healthcare-Focused**: Designed for NZ community service organizations
+- 🔒 **Privacy-First**: No PII/PHI stored, only help content
+- ⚡ **Fast Performance**: Sydney-region hosting for optimal NZ latency
+- 🎨 **Modern UI**: Built with shadcn/ui and Radix primitives
+- 🔍 **Full-Text Search**: Powered by PostgreSQL with tsvector
+- 📱 **Responsive**: Works seamlessly on desktop and mobile
+- ♿ **Accessible**: WCAG compliant with keyboard navigation
+- 📊 **Analytics**: Anonymous usage tracking for content improvement
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or pnpm
+- Supabase account (free tier works)
+
+### Installation
+
+1. **Clone the repository:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/mjmtk/mtkcare-help-panel.git
+cd mtkcare-help-panel
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Install dependencies:**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Set up Supabase:**
+   - Create a new Supabase project in **ap-southeast-2 (Sydney)**
+   - Run the SQL scripts in order:
+     - `docs/05-deployment/supabase-schema.sql`
+     - `docs/05-deployment/initial-help-content.sql`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Configure environment:**
+```bash
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+```
 
-## Learn More
+5. **Run development server:**
+```bash
+npm run dev
+# Opens on http://localhost:3001
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Integration Options
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Option 1: Direct Django Integration (Recommended)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Copy the help panel components directly into your Django app's React frontend:
 
-## Deploy on Vercel
+```bash
+# Copy these folders to your Django app
+help-panel/components/ → your-app/frontend/src/components/help/
+help-panel/hooks/      → your-app/frontend/src/hooks/help/
+help-panel/lib/        → your-app/frontend/src/lib/help/
+help-panel/types/      → your-app/frontend/src/types/help/
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See [Django Integration Guide](docs/03-architecture/django-integration-guide.md) for detailed instructions.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Option 2: Standalone Deployment
+
+Deploy as a separate service using Vercel:
+
+```bash
+npm i -g vercel
+vercel
+```
+
+See [Deployment Checklist](docs/05-deployment/deployment-checklist.md) for production setup.
+
+## Project Structure
+
+```
+mtkcare-help-panel/
+├── app/                 # Next.js app directory
+│   ├── api/            # API routes for help content
+│   └── layout.tsx      # Main layout with sidebar
+├── components/         # UI components
+│   ├── help/          # Help panel components
+│   └── ui/            # shadcn/ui components
+├── help-panel/        # Modular help panel package
+│   ├── components/    # Standalone help components
+│   ├── hooks/         # Custom React hooks
+│   ├── lib/           # API and utilities
+│   └── types/         # TypeScript definitions
+├── docs/              # Documentation
+│   ├── 03-architecture/  # Architecture decisions
+│   └── 05-deployment/    # Deployment guides
+└── lib/               # Shared utilities
+    └── supabase.ts    # Supabase client
+```
+
+## Content Management
+
+### Update Help Articles
+
+Help content is stored in Supabase and can be updated in several ways:
+
+1. **Supabase Dashboard**: Direct table editing
+2. **SQL Queries**: Bulk updates via SQL editor
+3. **Future: Notion Integration**: Non-coder friendly updates
+
+### Database Schema
+
+- `categories`: Help content categories
+- `help_articles`: Main content with full-text search
+- `help_analytics`: Anonymous usage tracking
+
+## Development
+
+### Available Scripts
+
+```bash
+npm run dev      # Start development server on port 3001
+npm run build    # Build for production
+npm run lint     # Run ESLint
+npm run type-check # Run TypeScript check
+```
+
+### Key Technologies
+
+- **Frontend**: Next.js 15, React 18, TypeScript
+- **UI**: shadcn/ui, Radix UI, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL)
+- **Deployment**: Vercel (optional)
+
+## Documentation
+
+- [Getting Started](docs/01-getting-started/README.md)
+- [Architecture Overview](docs/03-architecture/README.md)
+- [Django Integration](docs/03-architecture/django-integration-guide.md)
+- [Deployment Guide](docs/05-deployment/README.md)
+- [API Reference](docs/04-api/README.md)
+
+## Support
+
+For issues, questions, or contributions:
+- Open an issue on [GitHub](https://github.com/mjmtk/mtkcare-help-panel/issues)
+- Check the [Troubleshooting Guide](docs/07-troubleshooting/README.md)
+
+## License
+
+MIT - See [LICENSE](LICENSE) file for details
+
+## Acknowledgments
+
+- Built with [Next.js](https://nextjs.org) and [shadcn/ui](https://ui.shadcn.com)
+- Powered by [Supabase](https://supabase.com)
+- Optimized for New Zealand healthcare organizations

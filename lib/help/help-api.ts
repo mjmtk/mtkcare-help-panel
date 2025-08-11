@@ -1,74 +1,175 @@
+import { supabase } from "@/lib/supabase"
 import type { HelpContent, HelpSearchParams, HelpAnalytics } from "@/types/help"
-
-const API_BASE = "/api/help"
 
 export class HelpAPI {
   static async getHelpContent(params?: HelpSearchParams): Promise<HelpContent[]> {
     try {
-      const searchParams = new URLSearchParams()
-      if (params?.query) searchParams.set("query", params.query)
-      if (params?.category) searchParams.set("category", params.category)
-      if (params?.tags) searchParams.set("tags", params.tags.join(","))
+      let query = supabase
+        .from('help_articles')
+        .select(`
+          *,
+          categories (
+            name,
+            icon
+          )
+        `)
+        .eq('is_published', true)
 
-      const url = `${API_BASE}/content?${searchParams}`
-      console.log("Fetching help content from:", url)
-
-      const response = await fetch(url)
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      // Apply filters
+      if (params?.category) {
+        query = query.eq('categories.name', params.category)
       }
 
-      const data = await response.json()
-      console.log("Received help content:", data)
-      return data
+      if (params?.tags && params.tags.length > 0) {
+        query = query.contains('tags', params.tags)
+      }
+
+      if (params?.query) {
+        // Full-text search using the search_vector
+        query = query.textSearch('search_vector', params.query)
+      }
+
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) {
+        console.error('Supabase query error:', error)
+        throw new Error(`Failed to fetch help content: ${error.message}`)
+      }
+
+      // Transform data to match HelpContent interface
+      return (data || []).map(article => ({
+        id: article.id,
+        title: article.title,
+        description: article.description,
+        content: article.content,
+        category: article.categories?.name || 'General',
+        tags: article.tags || [],
+        createdAt: article.created_at,
+        updatedAt: article.updated_at,
+        viewCount: article.view_count || 0
+      }))
     } catch (error) {
       console.error("Error in getHelpContent:", error)
       throw error
     }
   }
 
-  static async getHelpTopic(id: string): Promise<HelpContent> {
+  static async getHelpTopic(id: string): Promise<HelpContent | null> {
     try {
-      const url = `${API_BASE}/content/${id}`
-      console.log("Fetching help topic from:", url)
+      const { data, error } = await supabase
+        .from('help_articles')
+        .select(`
+          *,
+          categories (
+            name,
+            icon
+          )
+        `)
+        .eq('id', id)
+        .eq('is_published', true)
+        .single()
 
-      const response = await fetch(url)
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null // Not found
+        }
+        console.error('Supabase query error:', error)
+        throw new Error(`Failed to fetch help topic: ${error.message}`)
       }
 
-      const data = await response.json()
-      console.log("Received help topic:", data)
-      return data
+      // Increment view count
+      await this.incrementViewCount(id)
+
+      // Transform to HelpContent interface
+      return {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        content: data.content,
+        category: data.categories?.name || 'General',
+        tags: data.tags || [],
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        viewCount: data.view_count || 0
+      }
     } catch (error) {
       console.error("Error in getHelpTopic:", error)
       throw error
     }
   }
 
-  static async trackAnalytics(data: HelpAnalytics): Promise<void> {
-    try {
-      await fetch(`${API_BASE}/analytics`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-    } catch (error) {
-      console.error("Error tracking analytics:", error)
-      // Don't throw here as analytics failures shouldn't break the app
-    }
-  }
-
   static async getPopularTopics(): Promise<HelpContent[]> {
     try {
-      const response = await fetch(`${API_BASE}/popular`)
-      if (!response.ok) throw new Error("Failed to fetch popular topics")
-      return response.json()
+      const { data, error } = await supabase
+        .from('help_articles')
+        .select(`
+          *,
+          categories (
+            name,
+            icon
+          )
+        `)
+        .eq('is_published', true)
+        .order('view_count', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Supabase query error:', error)
+        throw new Error(`Failed to fetch popular topics: ${error.message}`)
+      }
+
+      // Transform data to match HelpContent interface
+      return (data || []).map(article => ({
+        id: article.id,
+        title: article.title,
+        description: article.description,
+        content: article.content,
+        category: article.categories?.name || 'General',
+        tags: article.tags || [],
+        createdAt: article.created_at,
+        updatedAt: article.updated_at,
+        viewCount: article.view_count || 0
+      }))
     } catch (error) {
       console.error("Error in getPopularTopics:", error)
       throw error
+    }
+  }
+
+  static async trackAnalytics(analytics: Omit<HelpAnalytics, 'timestamp'>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('help_analytics')
+        .insert({
+          article_id: analytics.topicId || null,
+          action: analytics.action,
+          context: analytics.context || null,
+          session_hash: analytics.sessionHash || null,
+          timestamp: new Date().toISOString()
+        })
+
+      if (error) {
+        console.warn('Analytics tracking error:', error)
+        // Don't throw - analytics failures shouldn't break the app
+      }
+    } catch (error) {
+      console.warn("Analytics tracking error:", error)
+      // Don't throw error for analytics failures
+    }
+  }
+
+  private static async incrementViewCount(articleId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .rpc('increment_view_count', { article_id: articleId })
+
+      if (error) {
+        console.error('View count increment error:', error)
+      }
+    } catch (error) {
+      console.error('View count increment error:', error)
     }
   }
 }
